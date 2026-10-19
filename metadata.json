@@ -1,0 +1,6 @@
+{
+  "name": "TeX",
+  "description": "Professional camera teleprompter with intelligent eye alignment, chroma green-screen recording, and local video export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
