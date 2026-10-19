@@ -1,42 +1,77 @@
-name: Build TeX APK
+name: Build debug APK
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: read
+    branches: [ main ]
+  pull_request:
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
+    env:
+      APK_PATH: app/build/outputs/apk/debug/app-debug.apk
 
     steps:
-      - name: Checkout TeX source code
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+    - name: Quick project file check
+      run: |
+        echo "Checking for key project files..."
+        missing=0
+        files_to_check=(
+          "./build.gradle.kts"
+          "./settings.gradle.kts"
+          "./app/build.gradle.kts"
+          "./gradle/wrapper/gradle-wrapper.properties"
+        )
+        for f in "${files_to_check[@]}"; do
+          if [ -f "$f" ]; then
+            echo "Found $f"
+          else
+            echo "::warning::$f not found"
+            missing=1
+          fi
+        done
+        if [ "$missing" -eq 1 ]; then
+          echo "::error::One or more required Gradle/Android project files are missing. The build will stop. If the Gradle wrapper (gradlew + gradle/wrapper/*) is not committed to the repo, please add it. See https://docs.gradle.org/current/userguide/gradle_wrapper.html"
+          exit 1
+        fi
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+    - name: Set up JDK (change java-version if your AGP requires Java 17)
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
 
-      - name: Grant Gradle permission
-        run: chmod +x ./gradlew
+    - name: Make gradlew executable (if present)
+      run: |
+        if [ -f "./gradlew" ]; then
+          chmod +x ./gradlew
+        fi
 
-      - name: Build TeX debug APK
-        run: ./gradlew assembleDebug
+    - name: Build Debug APK using Gradle wrapper
+      run: |
+        if [ -f "./gradlew" ]; then
+          echo "Running ./gradlew assembleDebug"
+          ./gradlew assembleDebug --no-daemon
+        else
+          echo "::error::Gradle wrapper (./gradlew) not found in repository root; please commit it. See https://docs.gradle.org/current/userguide/gradle_wrapper.html"
+          exit 1
+        fi
 
-      - name: Upload TeX APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: TeX-Android-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
+    - name: Verify APK exists
+      run: |
+        echo "Looking for APK at $APK_PATH"
+        if [ ! -f "$APK_PATH" ]; then
+          echo "::error::APK not found at $APK_PATH. Build may have failed or the output path is different."
+          ls -R app/build || true
+          exit 1
+        fi
+        echo "APK found."
+
+    - name: Upload app-debug.apk artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug.apk
+        path: ${{ env.APK_PATH }}
