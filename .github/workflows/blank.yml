@@ -36,9 +36,8 @@ jobs:
 
       - name: Create Android Debug Keystore
         run: |
-          mkdir -p "$HOME/.android"
           keytool -genkeypair \
-            -keystore "$HOME/.android/debug.keystore" \
+            -keystore "$GITHUB_WORKSPACE/debug.keystore" \
             -storepass android \
             -keypass android \
             -alias androiddebugkey \
